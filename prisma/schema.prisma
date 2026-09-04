@@ -1,0 +1,205 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+model User {
+  id                String       @id @default(cuid())
+  // Primaerer Login-Schluessel - im Gegensatz zum Benutzernamen unveraenderlich
+  // ohne eigenen Aenderungs-Flow, daher stabil genug fuer den Login.
+  email             String       @unique
+  username          String       @unique
+  // Zeitpunkt der letzten Benutzernamen-Aenderung - Basis fuer die 7-Tage-Sperre.
+  usernameChangedAt DateTime?
+  passwordHash      String
+  // "de" | "en" | "pt-BR" - siehe app/src/lib/i18n/locales.ts
+  locale            String       @default("de")
+  createdAt         DateTime     @default(now())
+  playerState       PlayerState?
+}
+
+model PlayerState {
+  id             String          @id @default(cuid())
+  userId         String          @unique
+  user           User            @relation(fields: [userId], references: [id])
+  hunger         Float           @default(100)
+  thirst         Float           @default(100)
+  energy         Float           @default(100)
+  figCount       Int             @default(0)
+  woodCount      Int             @default(0)
+  waterCount     Int             @default(0)
+  vegetableCount Int             @default(0)
+  fishCount      Int             @default(0)
+  stoneCount     Int             @default(0)
+  // Waehrung: teils Zufallsfund beim Sammeln, teils durch Verkauf an den
+  // Haendler (siehe MERCHANT_SELL_PRICE) - nutzbar sowohl beim Haendler als
+  // auch als offerResource/requestResource in normalen Spieler-Angeboten,
+  // da "coin" ein ganz normaler ResourceType ist (siehe lib/game.ts).
+  coinCount      Int             @default(0)
+  hasFireplace   Boolean         @default(false)
+  // Vom Spieler gewaehlter Bauplatz auf der Karte (Prozent 0..100), gesetzt
+  // beim Bauen. Null, solange nicht gebaut.
+  fireplaceX     Int?
+  fireplaceY     Int?
+  // Jeder Spieler hat ab der Registrierung eine Basis-Huette (siehe api/register)
+  // - kein "wilder" Schlaf ohne Standort mehr. Reduziert zusaetzlich die
+  // Hunger-/Durstabbaurate im Worker-Tick um 20 %, unabhaengig vom Level.
+  hasShelter     Boolean         @default(false)
+  shelterX       Int?
+  shelterY       Int?
+  // Ausbaustufe der Huette (1..MAX_SHELTER_LEVEL) - jede Stufe verkuerzt die
+  // Schlafdauer, siehe shelterSleepDurationMs() in lib/game.ts.
+  shelterLevel   Int             @default(1)
+  // Brunnen: optionales, craftbares Dorf-Gebaeude mit passiver Wasserproduktion
+  // ueber Zeit (siehe Worker-Tick). wellWaterAccum sammelt Bruchteile eines
+  // Wassers zwischen Ticks, bis eine ganze Einheit gutgeschrieben wird.
+  hasWell        Boolean         @default(false)
+  wellX          Int?
+  wellY          Int?
+  wellWaterAccum Float           @default(0)
+  // Garten: optionales, craftbares Dorf-Gebaeude mit passiver Gemueseproduktion
+  // ueber Zeit (siehe Worker-Tick) - funktioniert wie der Brunnen, nur fuer
+  // Gemuese statt Wasser.
+  hasGarden      Boolean         @default(false)
+  gardenX        Int?
+  gardenY        Int?
+  gardenVegAccum Float           @default(0)
+  // Vorratshaus: optionales, craftbares Dorf-Gebaeude, das Hunger- und
+  // Durstabbau zusaetzlich (multiplikativ mit der Huette) verlangsamt - siehe
+  // STOREHOUSE_DECAY_FACTOR in lib/game.ts.
+  hasStorehouse  Boolean         @default(false)
+  storehouseX    Int?
+  storehouseY    Int?
+  xp             Int             @default(0)
+  level          Int             @default(1)
+  // Position des Charakters auf der eigenen Insel (Prozent 0..100 innerhalb
+  // des Lauf-Bereichs) - fuer Klick-to-move und damit Besucher dich sehen.
+  posX           Int             @default(50)
+  posY           Int             @default(65)
+  // true, sobald die Einfuehrungs-Story + Tutorial gesehen oder uebersprungen wurden.
+  onboardingDone Boolean         @default(false)
+  // Zeitpunkt des letzten Worker-Ticks fuer diesen Spieler - Basis fuer die
+  // Berechnung der tatsaechlich vergangenen Zeit (nicht nur Tick-Anzahl).
+  lastTickAt     DateTime        @default(now())
+  createdAt      DateTime        @default(now())
+  updatedAt      DateTime        @updatedAt
+  pendingActions PendingAction[]
+  mapRegions     MapRegion[]
+  pathTiles      PathTile[]
+  sellerOffers   TradeOffer[]    @relation("SellerOffers")
+  buyerOffers    TradeOffer[]    @relation("BuyerOffers")
+}
+
+// Frei platzierbare, dekorative Weg-/Strassenkacheln auf der eigenen Insel -
+// Rasterposition (siehe PATH_GRID_STEP in lib/game.ts), damit ein erneuter
+// Klick auf dieselbe Stelle zuverlaessig auf dieselbe Kachel trifft (zum
+// Umschalten: Bauen/Entfernen ueber denselben Endpunkt, siehe api/build/path).
+model PathTile {
+  id        String      @id @default(cuid())
+  playerId  String
+  player    PlayerState @relation(fields: [playerId], references: [id])
+  x         Int
+  y         Int
+  createdAt DateTime    @default(now())
+
+  @@unique([playerId, x, y])
+  @@index([playerId])
+}
+
+// Zufaellig bei der Registrierung erzeugtes Ressourcen-Gebiet auf der eigenen
+// Insel (Kreis: Mittelpunkt + Radius, Prozent 0..100). Nicht jeder Typ ist auf
+// jeder Insel vorhanden - ein fehlendes Gebiet macht den Rohstoff nur ueber
+// den Marktplatz erreichbar. Pro Spieler hoechstens ein Gebiet je Typ.
+model MapRegion {
+  id        String      @id @default(cuid())
+  playerId  String
+  player    PlayerState @relation(fields: [playerId], references: [id])
+  // "grove" | "forest" | "spring" | "field" | "sea" | "quarry"
+  type      String
+  x         Int
+  y         Int
+  radius    Int         @default(18)
+  createdAt DateTime    @default(now())
+
+  @@unique([playerId, type])
+  @@index([playerId])
+}
+
+// Zeitbasierte Aktionen (z.B. Feige sammeln). Pro Spieler ist immer nur eine
+// gleichzeitig aktiv - siehe Validierung in den Action-API-Routen.
+model PendingAction {
+  id          String      @id @default(cuid())
+  playerId    String
+  player      PlayerState @relation(fields: [playerId], references: [id])
+  type        String
+  startedAt   DateTime    @default(now())
+  readyAt     DateTime
+
+  @@index([playerId])
+  @@index([readyAt])
+}
+
+// Asynchrones Marktplatz-Angebot: "offerAmount x offerResource gegen
+// requestAmount x requestResource". Der angebotene Rohstoff wird beim
+// Erstellen sofort vom Verkaeufer abgezogen (einfache Eskrow-Loesung),
+// damit kein Spieler gleichzeitig online sein muss, um zu handeln.
+model TradeOffer {
+  id              String      @id @default(cuid())
+  sellerId        String
+  seller          PlayerState @relation("SellerOffers", fields: [sellerId], references: [id])
+  buyerId         String?
+  buyer           PlayerState? @relation("BuyerOffers", fields: [buyerId], references: [id])
+  offerResource   String
+  offerAmount     Int
+  requestResource String
+  requestAmount   Int
+  status          String      @default("open") // "open" | "completed" | "cancelled"
+  createdAt       DateTime    @default(now())
+  completedAt     DateTime?
+
+  @@index([status])
+  @@index([sellerId])
+}
+
+// Genau eine Zeile (id = "world") - globaler Zustand, ausschliesslich vom
+// Worker geschrieben. Alle Spieler lesen denselben Tag/Nacht- und Wetterstand.
+model WorldState {
+  id                String   @id
+  // Position im Tag/Nacht-Zyklus in Millisekunden (0..CYCLE_DURATION_MS).
+  cyclePositionMs   Int      @default(0)
+  isNight           Boolean  @default(false)
+  weather           String   @default("sunny")
+  nextWeatherRollAt DateTime @default(now())
+  // Haendler-Preisfaktoren, die die "Bank" (Worker) laufend aus dem
+  // Verhaeltnis von umlaufenden Muenzen zu umlaufenden Rohstoffen neu
+  // berechnet - 1.0 = Basispreise unveraendert (siehe lib/game.ts
+  // MERCHANT_SELL_PRICE/MERCHANT_BUY_PRICE und worker/index.js
+  // updateCurrencyMultipliers).
+  currencySellMultiplier Float @default(1)
+  currencyBuyMultiplier  Float @default(1)
+  // Letzter Zeitpunkt, zu dem ein PriceSnapshot geschrieben wurde - steuert
+  // das Snapshot-Intervall, unabhaengig vom (haeufigeren) Tick-Intervall.
+  lastPriceSnapshotAt DateTime @default(now())
+  lastTickAt        DateTime @default(now())
+  updatedAt         DateTime @updatedAt
+}
+
+// Zeitreihe der Haendler-Preisfaktoren fuer den Verlaufs-Graphen auf
+// /economy - wird vom Worker in groesseren Abstaenden geschrieben als
+// getickt wird (siehe PRICE_SNAPSHOT_INTERVAL_MS), damit die Tabelle ueber
+// Wochen hinweg nicht ausufert. Die tatsaechlichen Preise pro Rohstoff
+// ergeben sich clientseitig aus Basispreis * Multiplikator (siehe
+// effectiveMerchantSellPrice/BuyPrice in lib/game.ts) - hier werden nur die
+// beiden Multiplikatoren gespeichert, nicht die abgeleiteten Einzelpreise.
+model PriceSnapshot {
+  id             String   @id @default(cuid())
+  createdAt      DateTime @default(now())
+  sellMultiplier Float
+  buyMultiplier  Float
+
+  @@index([createdAt])
+}

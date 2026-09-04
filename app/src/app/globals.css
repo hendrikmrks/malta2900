@@ -1,0 +1,87 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  body {
+    @apply bg-malta-950 text-stone-100 antialiased;
+  }
+  a,
+  button,
+  select,
+  [tabindex] {
+    @apply focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-turquoise-400/60
+      focus-visible:ring-offset-2 focus-visible:ring-offset-malta-950;
+  }
+}
+
+@layer components {
+  /* Buttons ------------------------------------------------------------ */
+  .btn {
+    @apply inline-flex select-none items-center justify-center gap-2 rounded-xl px-4 py-2.5
+      text-sm font-semibold tracking-wide transition-all duration-150 ease-out
+      hover:-translate-y-0.5 active:translate-y-0 active:scale-[0.97]
+      disabled:cursor-not-allowed disabled:opacity-40 disabled:hover:translate-y-0 disabled:active:scale-100
+      focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-turquoise-400/60
+      focus-visible:ring-offset-2 focus-visible:ring-offset-malta-950;
+  }
+  .btn-primary {
+    @apply btn bg-gradient-to-b from-terracotta-400 to-terracotta-600 text-malta-950
+      shadow-lg shadow-terracotta-900/40 ring-1 ring-inset ring-white/10
+      hover:from-terracotta-300 hover:to-terracotta-500 hover:shadow-glow-terracotta;
+  }
+  .btn-secondary {
+    @apply btn bg-white/[0.06] text-stone-100 ring-1 ring-inset ring-white/10
+      hover:bg-white/[0.1] hover:ring-white/20;
+  }
+  .btn-ghost {
+    @apply btn bg-transparent text-stone-400 ring-1 ring-inset ring-white/10
+      hover:text-stone-100 hover:ring-white/20;
+  }
+
+  /* Surfaces ------------------------------------------------------------ */
+  .glass-card {
+    @apply rounded-2xl border border-white/10 bg-malta-800/50 shadow-2xl shadow-black/50 backdrop-blur-xl;
+  }
+  .panel {
+    @apply glass-card animate-fade-in-up p-5 transition-colors duration-300 hover:border-white/20 sm:p-6;
+  }
+  .panel-header {
+    @apply mb-4 flex items-center gap-2.5 text-xs font-bold uppercase tracking-[0.14em] text-sand-400;
+  }
+
+  /* Forms ------------------------------------------------------------ */
+  .field-label {
+    @apply mb-1.5 block text-xs font-medium uppercase tracking-wide text-stone-400;
+  }
+  .input-field {
+    @apply w-full rounded-xl border border-white/10 bg-malta-950/70 px-3.5 py-2.5 text-stone-100
+      placeholder:text-stone-500 outline-none transition
+      focus:border-turquoise-400/60 focus:ring-4 focus:ring-turquoise-400/10;
+  }
+
+  /* Badges ------------------------------------------------------------ */
+  .badge {
+    @apply inline-flex items-center gap-1.5 rounded-full px-2.5 py-1 text-xs font-semibold;
+  }
+  .badge-on {
+    @apply badge bg-turquoise-500/15 text-turquoise-300 ring-1 ring-inset ring-turquoise-400/30;
+  }
+  .badge-off {
+    @apply badge bg-white/5 text-stone-500 ring-1 ring-inset ring-white/10;
+  }
+
+  /* Stat bars ------------------------------------------------------------ */
+  .stat-track {
+    @apply h-2.5 w-full overflow-hidden rounded-full bg-black/40 ring-1 ring-inset ring-white/5;
+  }
+  .stat-fill {
+    @apply h-full rounded-full transition-[width] duration-700 ease-out;
+  }
+
+  /* Inventory tiles ------------------------------------------------------------ */
+  .inventory-tile {
+    @apply flex items-center justify-between gap-2 rounded-xl border border-white/[0.06]
+      bg-white/[0.03] px-3.5 py-3 transition hover:bg-white/[0.05];
+  }
+}

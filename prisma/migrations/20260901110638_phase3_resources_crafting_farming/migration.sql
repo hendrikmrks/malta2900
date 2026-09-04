@@ -1,0 +1,6 @@
+-- AlterTable
+ALTER TABLE "PlayerState" ADD COLUMN     "hasFireplace" BOOLEAN NOT NULL DEFAULT false,
+ADD COLUMN     "hasShelter" BOOLEAN NOT NULL DEFAULT false,
+ADD COLUMN     "vegetableCount" INTEGER NOT NULL DEFAULT 0,
+ADD COLUMN     "waterCount" INTEGER NOT NULL DEFAULT 0,
+ADD COLUMN     "woodCount" INTEGER NOT NULL DEFAULT 0;
