@@ -29,7 +29,7 @@ Unlike a real-time action game, Malta2900 is a **management game**: forms, butto
 - **Light progression**: An XP/level system gives small, tangible bonuses without turning into a full skill tree.
 - **Player-to-player trading**: An asynchronous marketplace where players post offers ("N of resource A for M of resource B"); the offered resource is held in escrow so trades can complete without both players being online at the same time.
 - **Dynamic economy**: An NPC merchant buys and sells resources at prices that drift over time based on the ratio of coins to resources in circulation, with a historical price chart on the in-game economy page.
-- **Multi-user**: Registration and login via username/password, with each account getting its own fully independent island, inventory, and progression.
+- **Multi-user**: Registration and login via email/password (the in-game username is a separate, changeable display name, not the login credential), with each account getting its own fully independent island, inventory, and progression.
 - **Multi-language**: The UI is available in German, English, and Brazilian Portuguese.
 
 The full, phase-by-phase design and build history lives in [`BUILD_PLAN.md`](./BUILD_PLAN.md).
@@ -46,7 +46,7 @@ The project is a small Docker Compose stack with three services:
 
 **Time-based actions** (gathering, sleeping, farming, ...) are stored server-side as start time + duration and resolved by the worker based on *actual* elapsed wall-clock time (via a `lastTickAt` field), not a fixed tick count — so progress is always correct even after the worker has been down for a while. The dashboard polls a lightweight, auth-protected API route periodically to reflect the current state without a full page reload.
 
-**Authentication** uses [NextAuth.js](https://next-auth.js.org/) with the Credentials provider (username/password, passwords hashed with bcrypt) and **JWT sessions** rather than database sessions — this is the standard approach in the NextAuth ecosystem for the Credentials provider, which does not support database sessions, and it avoids needing an additional DB adapter (Account/Session tables).
+**Authentication** uses [NextAuth.js](https://next-auth.js.org/) with the Credentials provider (email/password — email is the immutable login key, while the in-game username can be changed later — passwords hashed with bcrypt) and **JWT sessions** rather than database sessions — this is the standard approach in the NextAuth ecosystem for the Credentials provider, which does not support database sessions, and it avoids needing an additional DB adapter (Account/Session tables).
 
 ## Tech Stack
 
@@ -72,6 +72,11 @@ cd malta2900
 cp .env.example .env
 # then edit .env and set your own POSTGRES_PASSWORD and NEXTAUTH_SECRET
 # (generate a secret with: openssl rand -base64 32)
+
+docker network create proxy-net
+# one-time, host-wide: docker-compose.yml attaches `app` to this external
+# network (for an optional reverse proxy, see below); `docker compose up`
+# fails with "network proxy-net ... could not be found" without it.
 
 docker compose up -d db
 # wait until the db container is "healthy" (docker compose ps)
@@ -144,11 +149,11 @@ This is an actively evolving personal/hobby project. [`BUILD_PLAN.md`](./BUILD_P
 
 Development so far has leaned heavily on AI pair-programming (Claude Code), with `BUILD_PLAN.md` doubling as the working brief for that process — mentioned here for transparency, not as a disclaimer.
 
-The repository is currently private while the game is still taking shape, with the intention of eventually open-sourcing it publicly once it's in better shape for outside contributors.
+The repository is public on GitHub, with the game still actively taking shape.
 
 ## Contributing
 
-Issues and pull requests are welcome once the repository is public. Please keep changes focused and, for anything non-trivial, open an issue first to discuss the approach before investing time in a PR.
+Issues and pull requests are welcome. See [`CONTRIBUTING.md`](./CONTRIBUTING.md) for local setup, the app/worker split, database migrations, and the PR workflow. Please keep changes focused and, for anything non-trivial, open an issue first to discuss the approach before investing time in a PR.
 
 ## Code of Conduct
 
